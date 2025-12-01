@@ -419,3 +419,48 @@ app.get("/api/bombonas/:id/movements", authMiddleware, async (req, res) => {
     return res.status(500).json({ message: "Erro ao buscar movimentos" });
   }
 });
+
+// listar RFIDs não vinculadas
+app.get("/api/rfids/unlinked", authMiddleware, async (req, res) => {
+  try {
+    // pega todas as RFIDs (ordem por última leitura)
+    const rfids = await prisma.rfid.findMany({ orderBy: { lastSeenAt: "desc" } });
+
+    // pega todos os rfidId já usados por bombonas
+    const bombonas = await prisma.bombona.findMany({ select: { rfidId: true } });
+    const used = new Set(bombonas.map(b => b.rfidId).filter(Boolean));
+
+    const out = rfids
+      .filter(r => !used.has(r.id))
+      .map(r => ({ ...r, metadata: r.metadata ? JSON.parse(r.metadata) : null }));
+
+    return res.json({ rfids: out });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Erro ao listar RFIDs não vinculadas" });
+  }
+});
+
+// atribuir RFID (por UID) a uma bombona
+app.patch("/api/rfids/:uid/assign-bombona", authMiddleware, async (req, res) => {
+  try {
+    const uid = String(req.params.uid);
+    const { bombonaId } = req.body;
+    if (!bombonaId) return res.status(400).json({ message: "bombonaId obrigatório" });
+
+    const rfid = await prisma.rfid.findUnique({ where: { uid } });
+    if (!rfid) return res.status(404).json({ message: "RFID não encontrada" });
+
+    const bombona = await prisma.bombona.findUnique({ where: { id: Number(bombonaId) } });
+    if (!bombona) return res.status(404).json({ message: "Bombona não encontrada" });
+
+    // atualiza vínculo na bombona e owner da RFID
+    await prisma.bombona.update({ where: { id: bombona.id }, data: { rfidId: rfid.id } });
+    await prisma.rfid.update({ where: { id: rfid.id }, data: { ownerId: req.userId } });
+
+    return res.json({ ok: true, bombonaId: bombona.id, rfidId: rfid.id });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Erro ao atribuir RFID" });
+  }
+});

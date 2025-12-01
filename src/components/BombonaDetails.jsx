@@ -10,6 +10,8 @@ export default function BombonaDetails() {
   const navigate = useNavigate();
   const [bombona, setBombona] = useState(null);
   const [movements, setMovements] = useState([]);
+  const [editMode, setEditMode] = useState(false);
+  const [form, setForm] = useState({ serial: "", label: "", contents: "", latitude: "", longitude: "", rfidUid: "" });
   const mapRef = useRef(null);
 
   async function load() {
@@ -28,6 +30,48 @@ export default function BombonaDetails() {
   }
 
   useEffect(() => { load(); }, [id]);
+
+  function initFormFromBombona() {
+    setForm({
+      serial: bombona.serial || "",
+      label: bombona.label || "",
+      contents: bombona.contents || "",
+      latitude: bombona.latitude != null ? String(bombona.latitude) : "",
+      longitude: bombona.longitude != null ? String(bombona.longitude) : "",
+      rfidUid: bombona.rfid ? bombona.rfid.uid : "",
+    });
+  }
+
+  function resetForm() {
+    setForm({ serial: "", label: "", contents: "", latitude: "", longitude: "", rfidUid: "" });
+  }
+
+  async function handleSave() {
+    try {
+      const payload = {
+        serial: form.serial,
+        label: form.label,
+        contents: form.contents,
+        latitude: form.latitude !== "" ? Number(form.latitude) : null,
+        longitude: form.longitude !== "" ? Number(form.longitude) : null,
+      };
+      await updateBombona(bombona.id, payload);
+      // atribuir RFID se diferente / presente
+      if (form.rfidUid && form.rfidUid !== (bombona.rfid ? bombona.rfid.uid : "")) {
+        await assignRfidToBombona(bombona.id, form.rfidUid);
+      } else if (!form.rfidUid && bombona.rfid) {
+        // remover vínculo
+        await updateBombona(bombona.id, { rfidId: null });
+      }
+      await load();
+      setEditMode(false);
+      resetForm();
+      alert("Bombona atualizada");
+    } catch (err) {
+      console.error(err);
+      alert(err?.response?.data?.message || "Erro ao salvar bombona");
+    }
+  }
 
   if (!bombona) return <p>Carregando...</p>;
 
@@ -58,20 +102,48 @@ export default function BombonaDetails() {
 
       <aside style={{ width: 420 }}>
         <section style={{ marginBottom: 12 }}>
+          {/** modo leitura / edição */}
           <h3>Informações</h3>
-          <p><b>Serial:</b> {bombona.serial}</p>
-          <p><b>Label:</b> {bombona.label || "-"}</p>
-          <p><b>RFID:</b> {bombona.rfid ? bombona.rfid.uid : "-"}</p>
-          <p><b>Última leitura:</b> {bombona.rfid && bombona.rfid.lastSeenAt ? new Date(bombona.rfid.lastSeenAt).toLocaleString() : "-"}</p>
-          <p><b>Descrição:</b> {bombona.contents || "-"}</p>
-          <div style={{ marginTop: 8 }}>
-            <button onClick={() => {
-              const newLabel = prompt("Novo label:", bombona.label || "");
-              if (newLabel !== null) { updateBombona(bombona.id, { label: newLabel }).then(load).catch(e => { console.error(e); alert("Erro"); }); }
-            }}>Editar label</button>
-            {bombona.rfid && <button onClick={() => { if (confirm("Marcar leitura agora?")) { markRfidSeen(bombona.rfid.uid).then(load).catch(e => { console.error(e); alert("Erro"); }); } }} style={{ marginLeft: 8 }}>Marcar leitura</button>}
-          </div>
-        </section>
+          {editMode ? (
+            <form onSubmit={async (e) => { e.preventDefault(); await handleSave(); }}>
+              <label>Serial</label>
+              <input value={form.serial} onChange={e => setForm(f => ({ ...f, serial: e.target.value }))} required />
+
+              <label>Label</label>
+              <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} />
+
+              <label>Descrição</label>
+              <input value={form.contents} onChange={e => setForm(f => ({ ...f, contents: e.target.value }))} />
+
+              <label>Latitude</label>
+              <input value={form.latitude ?? ""} onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))} />
+
+              <label>Longitude</label>
+              <input value={form.longitude ?? ""} onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))} />
+
+              <label>RFID (UID)</label>
+              <input value={form.rfidUid ?? ""} onChange={e => setForm(f => ({ ...f, rfidUid: e.target.value }))} />
+
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button type="submit">Salvar</button>
+                <button type="button" className="secondary" onClick={() => { setEditMode(false); resetForm(); }}>Cancelar</button>
+                <button type="button" className="secondary" onClick={async () => { if (!confirm("Remover vínculo da RFID?")) return; await updateBombona(bombona.id, { rfidId: null }); await load(); }}>Remover RFID</button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p><b>Serial:</b> {bombona.serial}</p>
+              <p><b>Label:</b> {bombona.label || "-"}</p>
+              <p><b>RFID:</b> {bombona.rfid ? bombona.rfid.uid : "-"}</p>
+              <p><b>Última leitura:</b> {bombona.rfid && bombona.rfid.lastSeenAt ? new Date(bombona.rfid.lastSeenAt).toLocaleString() : "-"}</p>
+              <p><b>Descrição:</b> {bombona.contents || "-"}</p>
+              <div style={{ marginTop: 8 }}>
+                <button onClick={() => { setEditMode(true); initFormFromBombona(); }}>Editar</button>
+                {bombona.rfid && <button onClick={() => { if (confirm("Marcar leitura agora?")) { markRfidSeen(bombona.rfid.uid).then(load).catch(e => { console.error(e); alert("Erro"); }); } }} style={{ marginLeft: 8 }}>Marcar leitura</button>}
+              </div>
+            </>
+          )}
+         </section>
 
         <section style={{ marginBottom: 12 }}>
           <h3>Ações rápidas</h3>

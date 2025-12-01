@@ -22,6 +22,10 @@ export async function assignRfidToBombona(bombonaId, rfidUid) {
   return api.post(`/bombonas/${bombonaId}/assign-rfid`, { rfidUid });
 }
 
+export async function assignRfidToBombonaByUid(uid, bombonaId) {
+  return api.patch(`/rfids/${encodeURIComponent(uid)}/assign-bombona`, { bombonaId });
+}
+
 export async function checkoutBombona(bombonaId, payload) {
   return api.post(`/bombonas/${bombonaId}/checkout`, payload);
 }
@@ -52,6 +56,14 @@ export async function updateBombona(bombonaId, data) {
 
 export async function markRfidSeen(uid) {
   return api.patch(`/rfids/${encodeURIComponent(uid)}/mark-seen`);
+}
+
+export async function getUnlinkedRfids() {
+  return api.get("/rfids/unlinked");
+}
+
+export async function assignRfidToBombonaByUid(uid, bombonaId) {
+  return api.patch(`/rfids/${encodeURIComponent(uid)}/assign-bombona`, { bombonaId });
 }
 
 export default api;

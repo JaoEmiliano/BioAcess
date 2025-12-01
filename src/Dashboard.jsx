@@ -8,6 +8,7 @@ import "./App.css";
 import BombonaList from "./components/BombonaList";
 import QuickCreate from "./components/QuickCreate";
 import CheckinCheckout from "./components/CheckinCheckout";
+import UnlinkedRfids from "./components/UnlinkedRfids";
 import { getBombonas } from "./services/api";
 
 // Ícone padrão do Leaflet corrigido (sem erro de imagem quebrada)
@@ -99,29 +100,10 @@ export default function Dashboard() {
 
       <aside style={{ width: 380, maxHeight: "600px", overflow: "auto", borderLeft: "1px solid #ddd", paddingLeft: 12 }}>
         <div className="sidebar-tabs" role="tablist" aria-label="Navegação">
-          <button
-            className={tab === "list" ? "active" : ""}
-            onClick={() => setTab("list")}
-            type="button"
-          >
-            Lista
-          </button>
-
-          <button
-            className={tab === "create" ? "active" : ""}
-            onClick={() => setTab("create")}
-            type="button"
-          >
-            Novo
-          </button>
-
-          <button
-            className={tab === "movement" ? "active" : ""}
-            onClick={() => setTab("movement")}
-            type="button"
-          >
-            Movimentos
-          </button>
+          <button className={tab === "list" ? "active" : ""} onClick={() => setTab("list")} type="button">Lista</button>
+          <button className={tab === "create" ? "active" : ""} onClick={() => setTab("create")} type="button">Novo</button>
+          <button className={tab === "movement" ? "active" : ""} onClick={() => setTab("movement")} type="button">Movimentos</button>
+          <button className={tab === "rfids" ? "active" : ""} onClick={() => setTab("rfids")} type="button">RFIDs</button>
         </div>
 
         {tab === "list" && (
@@ -136,6 +118,10 @@ export default function Dashboard() {
           <CheckinCheckout bombonas={bombonas} onDone={load} />
         )}
 
+        {tab === "rfids" && (
+          <UnlinkedRfids onAssigned={load} />
+        )}
+
         {/* detalhes rápidos */}
         {selected && (
           <div style={{ marginTop: 12, padding: 8, background: "#fafafa", borderRadius: 6 }}>
@@ -145,6 +131,17 @@ export default function Dashboard() {
             <p><b>Última leitura:</b> {selected.rfid && selected.rfid.lastSeenAt ? new Date(selected.rfid.lastSeenAt).toLocaleString() : "-"}</p>
             <p><b>Descrição:</b> {selected.contents || "-"}</p>
             <p><b>Coordenadas:</b> {selected.latitude != null ? `${selected.latitude}, ${selected.longitude}` : "-"}</p>
+
+            {/* Botão para abrir a página de detalhes completa */}
+            <div style={{ marginTop: 10 }}>
+              <button
+                className="small-button"
+                onClick={() => navigate(`/bombonas/${selected.id}`)}
+                type="button"
+              >
+                Ver detalhes
+              </button>
+            </div>
           </div>
         )}
       </aside>
